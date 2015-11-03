@@ -4,19 +4,16 @@
 #define SHOW_CONSOLE
 #include "include\graphics.h"
 
-#include "CUDAConnector.h"
+#include "pre_define.h"
+#include "cuda_connector.h"
 
 using namespace ege;
-
-#define CELL_X 500
-#define CELL_Y 500
-#define CELL_SIZE 2
-#define CELL_COLOR (((200)<<16) | ((200)<<8) | (200))
 
 
 char cells[CELL_X + 2][CELL_Y + 2] = { 0 };
 char cellsNext[CELL_X + 2][CELL_Y + 2] = { 0 };
 
+char cellsTemp[CELL_X + 2][CELL_Y + 2] = { 0 };
 
 void updateStatus()
 {
@@ -38,11 +35,18 @@ void updateStatus()
 }
 
 
-void updateScene(bool status = true)
+void updateScene(bool status = true, bool use_gpu = false)
 {
 	cleardevice();
 	if (status)
-		updateStatus();
+	{
+		if (use_gpu)
+			//CUDAUpdate(cells, 1);
+			anotherCUDAUpdate(cells, 1);
+		else
+			updateStatus();
+	}
+
 
 	if (CELL_SIZE == 1)
 	{
@@ -61,7 +65,7 @@ void updateScene(bool status = true)
 }
 
 
-void generate(int probability = 25, bool update = true)
+void generate(bool update = true, int probability = 25)
 {
 	for (int i = 1; i <= CELL_X; i++)
 	for (int j = 1; j <= CELL_Y; j++)
@@ -162,35 +166,80 @@ void GUI()
 }
 
 
-void CPUConsole(int iterateTime)
+float CPUConsole(int iterateTime)
 {
+	clear(false);
+	generate(false);
+	memcpy(cellsTemp, cells, (CELL_X + 2) * (CELL_Y + 2));
+
 	clock_t begin, end;
+	float time;
 	begin = clock();
 	for (int iterator = 0; iterator < iterateTime; iterator++)
 	{
-
+		updateStatus();
 	}
 	end = clock();
-	printf("Time used %fms.\n", double(end - begin) * 1000 / CLOCKS_PER_SEC);
+	time = double(end - begin) * 1000 / CLOCKS_PER_SEC;
+	printf("CPU time used %fms.\n", time);
+
+	return time;
 }
 
 
-void GPUConsole(int iterateTime)
+float GPUConsole(int iterateTime)
 {
-	clock_t begin, end;
-	begin = clock();
-	for (int iterator = 0; iterator < iterateTime; iterator++)
-	{
+	//clear(false);
+	//generate(false);
 
-	}
+	clock_t begin, end;
+	float time;
+	begin = clock();
+
+	//CUDAUpdate(cellsTemp, iterateTime);
+	anotherCUDAUpdate(cellsTemp, iterateTime);
+
 	end = clock();
-	printf("Time used %fms.\n", double(end - begin) * 1000 / CLOCKS_PER_SEC);
+	time = double(end - begin) * 1000 / CLOCKS_PER_SEC;
+	printf("GPU time used %fms.\n", time);
+
+	return time;
+}
+
+
+bool checkResult()
+{
+	for (int i = 1; i <= CELL_X; i++)
+	for (int j = 1; j <= CELL_Y; j++)
+	if (cellsTemp[i][j] != cells[i][j])
+		return false;
+	return true;
+}
+
+
+void Console()
+{
+	printf("Conway's Game of Life\n");
+	printf("%d x %d cells, ", CELL_X, CELL_Y);
+	printf("iterate for %d times.\n\n", ITERATE_TIME);
+
+	float cpu_time = CPUConsole(ITERATE_TIME);
+	float gpu_time = GPUConsole(ITERATE_TIME);
+
+	printf("\nChecking result...\n");
+	if (checkResult())
+		printf("Right Answer.\n");
+	else
+		printf("Wrong Answer.\n");
+
+	printf("\nSpeed up: %fx\n", cpu_time / gpu_time);
 }
 
 
 int main()
 {
-	GUI();
+	//GUI();
+	Console();
 
 	system("pause");
 	return 0;

@@ -3,114 +3,103 @@
 #include "device_launch_parameters.h"
 
 #include <stdio.h>
+#include <assert.h>
 
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
+#include "pre_define.h"
 
-__global__ void addKernel(int *c, const int *a, const int *b)
+#define CUDA_CALL(__func__) {const cudaError_t __cuda_err__ = (__func__); if (__cuda_err__ != cudaSuccess) {printf("\nCuda Error: %s (err_num=%d)\n", cudaGetErrorString(__cuda_err__), __cuda_err__); cudaDeviceReset(); assert(0);}}
+
+
+__device__ char gpu_cells[CELL_X + 2][CELL_Y + 2];
+__device__ char gpu_cells_next[CELL_X + 2][CELL_Y + 2];
+
+
+__global__ void simpleUpdateKernel()
 {
-    int i = threadIdx.x;
-    c[i] = a[i] + b[i];
+	int i = blockIdx.x + 1;
+	int j = threadIdx.x + 1;
+	int cellsCount = gpu_cells[i - 1][j - 1] + gpu_cells[i - 1][j] + gpu_cells[i - 1][j + 1] +
+		gpu_cells[i][j - 1] + gpu_cells[i][j + 1] +
+		gpu_cells[i + 1][j - 1] + gpu_cells[i + 1][j] + gpu_cells[i + 1][j + 1];
+
+	if (cellsCount == 3)
+		gpu_cells_next[i][j] = 1;
+	else if (cellsCount == 2)
+		gpu_cells_next[i][j] = gpu_cells[i][j];
+	else
+		gpu_cells_next[i][j] = 0;
 }
 
-extern "C" int testcuda(const int a[], const int b[], int c[], const int arraySize)
+
+/*__global__ void updateKernelPlus()
 {
-        // Add vectors in parallel.
-    cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addWithCuda failed!");
-        return 1;
-    }
+	int i = blockIdx.x / (CELL_Y / BLOCK_DIM) + 1;
+	int j = threadIdx.x + BLOCK_DIM * (blockIdx.x % (CELL_Y / BLOCK_DIM)) + 1;
+	int cellsCount = gpu_cells[i - 1][j - 1] + gpu_cells[i - 1][j] + gpu_cells[i - 1][j + 1] +
+		gpu_cells[i][j - 1] + gpu_cells[i][j + 1] +
+		gpu_cells[i + 1][j - 1] + gpu_cells[i + 1][j] + gpu_cells[i + 1][j + 1];
 
-    printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-        c[0], c[1], c[2], c[3], c[4]);
+	if (cellsCount == 3)
+		gpu_cells_next[i][j] = 1;
+	else if (cellsCount == 2)
+		gpu_cells_next[i][j] = gpu_cells[i][j];
+	else
+		gpu_cells_next[i][j] = 0;
+}*/
 
-    // cudaDeviceReset must be called before exiting in order for profiling and
-    // tracing tools such as Nsight and Visual Profiler to show complete traces.
-    cudaStatus = cudaDeviceReset();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceReset failed!");
-        return 1;
-    }
 
-    return 0;
+extern "C" int CUDAUpdate(char cells[CELL_X + 2][CELL_Y + 2], int iterateTime)
+{
+	CUDA_CALL(cudaMemcpyToSymbol(gpu_cells, cells, (CELL_X + 2) * (CELL_Y + 2)));
+	for (int iterator = 0; iterator < iterateTime; iterator++)
+	{
+		simpleUpdateKernel << <CELL_X, CELL_Y >> >();
+		//updateKernelPlus << < CELL_X * (CELL_Y / BLOCK_DIM), BLOCK_DIM >> >();
+		CUDA_CALL(cudaMemcpyFromSymbol(cells, gpu_cells_next, (CELL_X + 2) * (CELL_Y + 2)));
+		CUDA_CALL(cudaMemcpyToSymbol(gpu_cells, cells, (CELL_X + 2) * (CELL_Y + 2)));
+		//CUDA_CALL(cudaMemcpy(gpu_cells, gpu_cells_next, (CELL_X + 2) * (CELL_Y + 2), cudaMemcpyDeviceToDevice));
+	}
+	CUDA_CALL(cudaMemcpyFromSymbol(cells, gpu_cells, (CELL_X + 2) * (CELL_Y + 2)));
+	return 0;
 }
 
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
+
+__global__ void anotherSimpleUpdateKernel(char *gpu_cells, char *gpu_cells_next)
 {
-    int *dev_a = 0;
-    int *dev_b = 0;
-    int *dev_c = 0;
-    cudaError_t cudaStatus;
+	int i = blockIdx.x + 1;
+	int j = threadIdx.x + 1;
+	int cellsCount = gpu_cells[(i - 1) * (CELL_X + 2) + j - 1] + gpu_cells[(i - 1) * (CELL_X + 2) + j] + gpu_cells[(i - 1) * (CELL_X + 2) + j + 1] +
+		gpu_cells[i * (CELL_X + 2) + j - 1] + gpu_cells[i * (CELL_X + 2) + j + 1] +
+		gpu_cells[(i + 1) * (CELL_X + 2) + j - 1] + gpu_cells[(i + 1) * (CELL_X + 2) + j] + gpu_cells[(i + 1) * (CELL_X + 2) + j + 1];
 
-    // Choose which GPU to run on, change this on a multi-GPU system.
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        goto Error;
-    }
+	if (cellsCount == 3)
+		gpu_cells_next[i * (CELL_X + 2) + j] = 1;
+	else if (cellsCount == 2)
+		gpu_cells_next[i * (CELL_X + 2) + j] = gpu_cells[i * (CELL_X + 2) + j];
+	else
+		gpu_cells_next[i * (CELL_X + 2) + j] = 0;
+}
 
-    // Allocate GPU buffers for three vectors (two input, one output)    .
-    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
 
-    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+extern "C" int anotherCUDAUpdate(char cells[CELL_X + 2][CELL_Y + 2], int iterateTime)
+{
+	char *gpu_cells_pointer;
+	char *gpu_cells_next_pointer;
 
-    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	CUDA_CALL(cudaMalloc((void**)&gpu_cells_pointer, (CELL_X + 2) * (CELL_Y + 2)));
+	CUDA_CALL(cudaMalloc((void**)&gpu_cells_next_pointer, (CELL_X + 2) * (CELL_Y + 2)));
 
-    // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+	CUDA_CALL(cudaMemcpy(gpu_cells_pointer, cells, (CELL_X + 2) * (CELL_Y + 2), cudaMemcpyHostToDevice));
+	CUDA_CALL(cudaMemset(gpu_cells_next_pointer, 0, (CELL_X + 2) * (CELL_Y + 2)));
 
-    cudaStatus = cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+	for (int iterator = 0; iterator < iterateTime; iterator++)
+	{
+		anotherSimpleUpdateKernel << <CELL_X, CELL_Y >> >(gpu_cells_pointer, gpu_cells_next_pointer);
+		CUDA_CALL(cudaMemcpy(gpu_cells_pointer, gpu_cells_next_pointer, (CELL_X + 2) * (CELL_Y + 2), cudaMemcpyDeviceToDevice));
+	}
+	CUDA_CALL(cudaMemcpy(cells, gpu_cells_pointer, (CELL_X + 2) * (CELL_Y + 2), cudaMemcpyDeviceToHost));
 
-    // Launch a kernel on the GPU with one thread for each element.
-    addKernel<<<1, size>>>(dev_c, dev_a, dev_b);
-
-    // Check for any errors launching the kernel
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    
-    // cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
-
-    // Copy output vector from GPU buffer to host memory.
-    cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-Error:
-    cudaFree(dev_c);
-    cudaFree(dev_a);
-    cudaFree(dev_b);
-    
-    return cudaStatus;
+	CUDA_CALL(cudaFree(gpu_cells_pointer));
+	CUDA_CALL(cudaFree(gpu_cells_next_pointer));
+	return 0;
 }
