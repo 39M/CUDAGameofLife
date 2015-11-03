@@ -1,0 +1,1 @@
+extern "C" int testcuda(const int a[], const int b[], int c[], const int arraySize);
