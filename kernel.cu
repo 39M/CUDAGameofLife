@@ -9,11 +9,15 @@
 
 #define CUDA_CALL(__func__) {const cudaError_t __cuda_err__ = (__func__); if (__cuda_err__ != cudaSuccess) {printf("\nCuda Error: %s (err_num=%d)\n", cudaGetErrorString(__cuda_err__), __cuda_err__); cudaDeviceReset(); assert(0);}}
 
+/********** Version 1 **********/
+// Use symbol(__device__ variables as below) to store cells status
+
 
 __device__ char gpu_cells[CELL_X + 2][CELL_Y + 2];
 __device__ char gpu_cells_next[CELL_X + 2][CELL_Y + 2];
 
 
+// Kernel
 __global__ void simpleUpdateKernel()
 {
 	int i = blockIdx.x + 1;
@@ -31,6 +35,7 @@ __global__ void simpleUpdateKernel()
 }
 
 
+// A not efficient kernel
 /*__global__ void updateKernelPlus()
 {
 	int i = blockIdx.x / (CELL_Y / BLOCK_DIM) + 1;
@@ -48,6 +53,7 @@ __global__ void simpleUpdateKernel()
 }*/
 
 
+// Copy CPU cells status to GPU and call kernel, then copy data back
 extern "C" int CUDAUpdate(char cells[CELL_X + 2][CELL_Y + 2], int iterateTime)
 {
 	CUDA_CALL(cudaMemcpyToSymbol(gpu_cells, cells, (CELL_X + 2) * (CELL_Y + 2)));
@@ -55,15 +61,27 @@ extern "C" int CUDAUpdate(char cells[CELL_X + 2][CELL_Y + 2], int iterateTime)
 	{
 		simpleUpdateKernel << <CELL_X, CELL_Y >> >();
 		//updateKernelPlus << < CELL_X * (CELL_Y / BLOCK_DIM), BLOCK_DIM >> >();
+
+		// Why not copy data form GPU to GPU directly?
+		// But there's not a function "cudaMemcpyFromSymbolToSymbol"
+		// This makes it less efficient
 		CUDA_CALL(cudaMemcpyFromSymbol(cells, gpu_cells_next, (CELL_X + 2) * (CELL_Y + 2)));
 		CUDA_CALL(cudaMemcpyToSymbol(gpu_cells, cells, (CELL_X + 2) * (CELL_Y + 2)));
+
+		// This function cannot use for symbol
 		//CUDA_CALL(cudaMemcpy(gpu_cells, gpu_cells_next, (CELL_X + 2) * (CELL_Y + 2), cudaMemcpyDeviceToDevice));
 	}
 	CUDA_CALL(cudaMemcpyFromSymbol(cells, gpu_cells, (CELL_X + 2) * (CELL_Y + 2)));
 	return 0;
 }
+/********** Version 1 End **********/
 
 
+/********** Version 2 **********/
+// Alloc GPU memory to store cells status
+
+
+// Kernel
 __global__ void anotherSimpleUpdateKernel(char *gpu_cells, char *gpu_cells_next)
 {
 	int i = blockIdx.x + 1;
@@ -81,6 +99,7 @@ __global__ void anotherSimpleUpdateKernel(char *gpu_cells, char *gpu_cells_next)
 }
 
 
+// Copy CPU cells status to GPU and call kernel, then copy data back
 extern "C" int anotherCUDAUpdate(char cells[CELL_X + 2][CELL_Y + 2], int iterateTime)
 {
 	char *gpu_cells_pointer;
@@ -103,3 +122,4 @@ extern "C" int anotherCUDAUpdate(char cells[CELL_X + 2][CELL_Y + 2], int iterate
 	CUDA_CALL(cudaFree(gpu_cells_next_pointer));
 	return 0;
 }
+/********** Version 2 End **********/

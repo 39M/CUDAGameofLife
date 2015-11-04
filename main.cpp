@@ -9,12 +9,16 @@
 
 using namespace ege;
 
-
+// status of all cells
 char cells[CELL_X + 2][CELL_Y + 2] = { 0 };
+// next status of all cells
 char cellsNext[CELL_X + 2][CELL_Y + 2] = { 0 };
 
+// status of all cells backup used for CUDA
 char cellsTemp[CELL_X + 2][CELL_Y + 2] = { 0 };
 
+
+// Get the next status of all cells
 void updateStatus()
 {
 	char cellsCount;
@@ -24,14 +28,14 @@ void updateStatus()
 		cellsCount = cells[i - 1][j - 1] + cells[i - 1][j] + cells[i - 1][j + 1] +
 			cells[i][j - 1] + cells[i][j + 1] +
 			cells[i + 1][j - 1] + cells[i + 1][j] + cells[i + 1][j + 1];
-		if (cellsCount == 3)
+		if (cellsCount == 3)			// 3 neighbours -> alive
 			cellsNext[i][j] = 1;
-		else if (cellsCount == 2)
+		else if (cellsCount == 2)		// 2 neighbours -> remain
 			cellsNext[i][j] = cells[i][j];
-		else
+		else							// others -> die
 			cellsNext[i][j] = 0;
 	}
-	memcpy(cells, cellsNext, (CELL_X + 2) * (CELL_Y + 2));
+	memcpy(cells, cellsNext, (CELL_X + 2) * (CELL_Y + 2));		// Copy next status to current for update
 }
 
 
@@ -47,7 +51,7 @@ void updateScene(bool status = true, bool use_gpu = false)
 			updateStatus();
 	}
 
-
+	// Draw cells
 	if (CELL_SIZE == 1)
 	{
 		for (int i = 1; i <= CELL_X; i++)
@@ -65,6 +69,7 @@ void updateScene(bool status = true, bool use_gpu = false)
 }
 
 
+// Randomly generate cells
 void generate(bool update = true, int probability = 25)
 {
 	for (int i = 1; i <= CELL_X; i++)
@@ -77,6 +82,7 @@ void generate(bool update = true, int probability = 25)
 }
 
 
+// Make all cells die
 void clear(bool update = true)
 {
 	memset(cells, 0, (CELL_X + 2) * (CELL_Y + 2));
@@ -86,6 +92,7 @@ void clear(bool update = true)
 }
 
 
+// Mainloop of GUI
 void mainloop()
 {
 	bool pause = false;
@@ -134,6 +141,8 @@ void mainloop()
 		{
 			putchar('m');
 			mouse_msg mouse = getmouse();
+
+			// When pause, use mouse to change the status of a cell
 			if (pause && mouse.is_up())
 			{
 				if (cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1])
@@ -152,6 +161,7 @@ void mainloop()
 }
 
 
+// GUI version
 void GUI()
 {
 	setinitmode(INIT_DEFAULT);
@@ -166,14 +176,15 @@ void GUI()
 }
 
 
-float CPUConsole(int iterateTime)
+// Console version with CPU, return execute time
+double CPUConsole(int iterateTime)
 {
 	clear(false);
 	generate(false);
 	memcpy(cellsTemp, cells, (CELL_X + 2) * (CELL_Y + 2));
 
 	clock_t begin, end;
-	float time;
+	double time;
 	begin = clock();
 	for (int iterator = 0; iterator < iterateTime; iterator++)
 	{
@@ -187,13 +198,14 @@ float CPUConsole(int iterateTime)
 }
 
 
-float GPUConsole(int iterateTime)
+// Console version with CUDA, return execute time
+double GPUConsole(int iterateTime)
 {
 	//clear(false);
 	//generate(false);
 
 	clock_t begin, end;
-	float time;
+	double time;
 	begin = clock();
 
 	//CUDAUpdate(cellsTemp, iterateTime);
@@ -207,6 +219,7 @@ float GPUConsole(int iterateTime)
 }
 
 
+// Check if the results of CPU and CUDA are same
 bool checkResult()
 {
 	for (int i = 1; i <= CELL_X; i++)
@@ -217,14 +230,15 @@ bool checkResult()
 }
 
 
+// Console version, run CPU and CUDA version, compare execute time
 void Console()
 {
 	printf("Conway's Game of Life\n");
 	printf("%d x %d cells, ", CELL_X, CELL_Y);
 	printf("iterate for %d times.\n\n", ITERATE_TIME);
 
-	float cpu_time = CPUConsole(ITERATE_TIME);
-	float gpu_time = GPUConsole(ITERATE_TIME);
+	double cpu_time = CPUConsole(ITERATE_TIME);
+	double gpu_time = GPUConsole(ITERATE_TIME);
 
 	printf("\nChecking result...\n");
 	if (checkResult())
@@ -233,14 +247,15 @@ void Console()
 		printf("Wrong Answer.\n");
 
 	printf("\nSpeed up: %fx\n", cpu_time / gpu_time);
+	system("pause");
 }
 
 
 int main()
 {
-	//GUI();
-	Console();
+	// if run GUI(), the Console() won't execute
+	GUI();
+	//Console();
 
-	system("pause");
 	return 0;
 }
