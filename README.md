@@ -14,3 +14,7 @@ Control of the GUI version:
 - p: pause  
 - n: next frame(only on pause)  
 - mouse click: make a cell live or die(only on pause)  
+  
+![1](./ScreenShot/ScreenShot1.png)  
+  
+![1](./ScreenShot/ScreenShot2.png)
