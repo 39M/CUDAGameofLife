@@ -253,6 +253,7 @@ void Console()
 
 int main()
 {
+	srand((unsigned)time(NULL));
 	// if run GUI(), the Console() won't execute
 	GUI();
 	//Console();
