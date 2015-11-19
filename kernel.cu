@@ -39,18 +39,18 @@ __global__ void simpleUpdateKernel()
 // A not efficient kernel
 /*__global__ void updateKernelPlus()
 {
-	int i = blockIdx.x / (CELL_Y / BLOCK_DIM) + 1;
-	int j = threadIdx.x + BLOCK_DIM * (blockIdx.x % (CELL_Y / BLOCK_DIM)) + 1;
-	int cellsCount = gpu_cells[i - 1][j - 1] + gpu_cells[i - 1][j] + gpu_cells[i - 1][j + 1] +
-		gpu_cells[i][j - 1] + gpu_cells[i][j + 1] +
-		gpu_cells[i + 1][j - 1] + gpu_cells[i + 1][j] + gpu_cells[i + 1][j + 1];
+int i = blockIdx.x / (CELL_Y / BLOCK_DIM) + 1;
+int j = threadIdx.x + BLOCK_DIM * (blockIdx.x % (CELL_Y / BLOCK_DIM)) + 1;
+int cellsCount = gpu_cells[i - 1][j - 1] + gpu_cells[i - 1][j] + gpu_cells[i - 1][j + 1] +
+gpu_cells[i][j - 1] + gpu_cells[i][j + 1] +
+gpu_cells[i + 1][j - 1] + gpu_cells[i + 1][j] + gpu_cells[i + 1][j + 1];
 
-	if (cellsCount == 3)
-		gpu_cells_next[i][j] = 1;
-	else if (cellsCount == 2)
-		gpu_cells_next[i][j] = gpu_cells[i][j];
-	else
-		gpu_cells_next[i][j] = 0;
+if (cellsCount == 3)
+gpu_cells_next[i][j] = 1;
+else if (cellsCount == 2)
+gpu_cells_next[i][j] = gpu_cells[i][j];
+else
+gpu_cells_next[i][j] = 0;
 }*/
 
 
@@ -85,18 +85,22 @@ extern "C" int CUDAUpdate(char cells[CELL_X + 2][CELL_Y + 2], int iterateTime)
 // Kernel
 __global__ void anotherSimpleUpdateKernel(char *gpu_cells, char *gpu_cells_next)
 {
-	int i = blockIdx.x + 1;
-	int j = threadIdx.x + 1;
-	int cellsCount = gpu_cells[(i - 1) * (CELL_Y + 2) + j - 1] + gpu_cells[(i - 1) * (CELL_Y + 2) + j] + gpu_cells[(i - 1) * (CELL_Y + 2) + j + 1] +
-		gpu_cells[i * (CELL_Y + 2) + j - 1] + gpu_cells[i * (CELL_Y + 2) + j + 1] +
-		gpu_cells[(i + 1) * (CELL_Y + 2) + j - 1] + gpu_cells[(i + 1) * (CELL_Y + 2) + j] + gpu_cells[(i + 1) * (CELL_Y + 2) + j + 1];
+	int t0 = blockIdx.x * (CELL_Y + 2) + threadIdx.x + 1;
+	int t1 = t0 + CELL_Y + 2;
+	int t2 = t1 + CELL_Y + 2;
 
+	int cellsCount = gpu_cells[t0 - 1] + gpu_cells[t0] + gpu_cells[t0 + 1] +
+		gpu_cells[t1 - 1] + gpu_cells[t1 + 1] +
+		gpu_cells[t2 - 1] + gpu_cells[t2] + gpu_cells[t2 + 1];
+
+
+	//gpu_cells_next[t1] = cellsCount == 3 || cellsCount == 2 && gpu_cells[t1] ? 1 : 0;
 	if (cellsCount == 3)
-		gpu_cells_next[i * (CELL_Y + 2) + j] = 1;
+		gpu_cells_next[t1] = 1;
 	else if (cellsCount == 2)
-		gpu_cells_next[i * (CELL_Y + 2) + j] = gpu_cells[i * (CELL_Y + 2) + j];
+		gpu_cells_next[t1] = gpu_cells[t1];
 	else
-		gpu_cells_next[i * (CELL_Y + 2) + j] = 0;
+		gpu_cells_next[t1] = 0;
 }
 
 
