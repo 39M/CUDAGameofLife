@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <algorithm>
 
 #include "pre_define.h"
 
@@ -86,16 +87,16 @@ __global__ void anotherSimpleUpdateKernel(char *gpu_cells, char *gpu_cells_next)
 {
 	int i = blockIdx.x + 1;
 	int j = threadIdx.x + 1;
-	int cellsCount = gpu_cells[(i - 1) * (CELL_X + 2) + j - 1] + gpu_cells[(i - 1) * (CELL_X + 2) + j] + gpu_cells[(i - 1) * (CELL_X + 2) + j + 1] +
-		gpu_cells[i * (CELL_X + 2) + j - 1] + gpu_cells[i * (CELL_X + 2) + j + 1] +
-		gpu_cells[(i + 1) * (CELL_X + 2) + j - 1] + gpu_cells[(i + 1) * (CELL_X + 2) + j] + gpu_cells[(i + 1) * (CELL_X + 2) + j + 1];
+	int cellsCount = gpu_cells[(i - 1) * (CELL_Y + 2) + j - 1] + gpu_cells[(i - 1) * (CELL_Y + 2) + j] + gpu_cells[(i - 1) * (CELL_Y + 2) + j + 1] +
+		gpu_cells[i * (CELL_Y + 2) + j - 1] + gpu_cells[i * (CELL_Y + 2) + j + 1] +
+		gpu_cells[(i + 1) * (CELL_Y + 2) + j - 1] + gpu_cells[(i + 1) * (CELL_Y + 2) + j] + gpu_cells[(i + 1) * (CELL_Y + 2) + j + 1];
 
 	if (cellsCount == 3)
-		gpu_cells_next[i * (CELL_X + 2) + j] = 1;
+		gpu_cells_next[i * (CELL_Y + 2) + j] = 1;
 	else if (cellsCount == 2)
-		gpu_cells_next[i * (CELL_X + 2) + j] = gpu_cells[i * (CELL_X + 2) + j];
+		gpu_cells_next[i * (CELL_Y + 2) + j] = gpu_cells[i * (CELL_Y + 2) + j];
 	else
-		gpu_cells_next[i * (CELL_X + 2) + j] = 0;
+		gpu_cells_next[i * (CELL_Y + 2) + j] = 0;
 }
 
 
@@ -114,7 +115,8 @@ extern "C" int anotherCUDAUpdate(char cells[CELL_X + 2][CELL_Y + 2], int iterate
 	for (int iterator = 0; iterator < iterateTime; iterator++)
 	{
 		anotherSimpleUpdateKernel << <CELL_X, CELL_Y >> >(gpu_cells_pointer, gpu_cells_next_pointer);
-		CUDA_CALL(cudaMemcpy(gpu_cells_pointer, gpu_cells_next_pointer, (CELL_X + 2) * (CELL_Y + 2), cudaMemcpyDeviceToDevice));
+		//CUDA_CALL(cudaMemcpy(gpu_cells_pointer, gpu_cells_next_pointer, (CELL_X + 2) * (CELL_Y + 2), cudaMemcpyDeviceToDevice));
+		std::swap(gpu_cells_pointer, gpu_cells_next_pointer);
 	}
 	CUDA_CALL(cudaMemcpy(cells, gpu_cells_pointer, (CELL_X + 2) * (CELL_Y + 2), cudaMemcpyDeviceToHost));
 
