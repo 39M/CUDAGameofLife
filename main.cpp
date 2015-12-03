@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define SHOW_CONSOLE
+//#define SHOW_CONSOLE
 #include "include\graphics.h"
 
 #include "pre_define.h"
@@ -82,6 +82,58 @@ void generate(bool update = true, int probability = 25)
 }
 
 
+// Draw a gosper glider gun
+void draw_gun(int x, int y, bool update = true)
+{
+	if (x < 1 || y - 4 < 1 || x + 35 > CELL_X || y + 4 > CELL_Y)
+		return;
+
+	cells[x][y] = 1;
+	cells[x + 1][y] = 1;
+	cells[x][y + 1] = 1;
+	cells[x + 1][y + 1] = 1;
+
+	cells[x + 10][y] = 1;
+	cells[x + 10][y + 1] = 1;
+	cells[x + 10][y + 2] = 1;
+	cells[x + 11][y - 1] = 1;
+	cells[x + 11][y + 3] = 1;
+	cells[x + 12][y - 2] = 1;
+	cells[x + 12][y + 4] = 1;
+	cells[x + 13][y - 2] = 1;
+	cells[x + 13][y + 4] = 1;
+	cells[x + 14][y + 1] = 1;
+	cells[x + 15][y - 1] = 1;
+	cells[x + 15][y + 3] = 1;
+	cells[x + 16][y] = 1;
+	cells[x + 16][y + 1] = 1;
+	cells[x + 16][y + 2] = 1;
+	cells[x + 17][y + 1] = 1;
+
+	cells[x + 20][y] = 1;
+	cells[x + 20][y - 1] = 1;
+	cells[x + 20][y - 2] = 1;
+	cells[x + 21][y] = 1;
+	cells[x + 21][y - 1] = 1;
+	cells[x + 21][y - 2] = 1;
+	cells[x + 22][y + 1] = 1;
+	cells[x + 22][y - 3] = 1;
+
+	cells[x + 24][y + 1] = 1;
+	cells[x + 24][y + 2] = 1;
+	cells[x + 24][y - 3] = 1;
+	cells[x + 24][y - 4] = 1;
+
+	cells[x + 34][y - 1] = 1;
+	cells[x + 34][y - 2] = 1;
+	cells[x + 35][y - 1] = 1;
+	cells[x + 35][y - 2] = 1;
+
+	if (update)
+		updateScene(false);
+}
+
+
 // Make all cells die
 void clear(bool update = true)
 {
@@ -142,14 +194,22 @@ void mainloop()
 			putchar('m');
 			mouse_msg mouse = getmouse();
 
-			// When pause, use mouse to change the status of a cell
-			if (pause && mouse.is_up())
+			if (mouse.is_up())
 			{
-				if (cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1])
-					cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1] = 0;
-				else
-					cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1] = 1;
-				updateScene(false);
+				// When pause, use mouse to change the status of a cell
+				if (pause && mouse.is_left())
+				{
+					if (cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1])
+						cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1] = 0;
+					else
+						cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1] = 1;
+					updateScene(false);
+				}
+				// Draw a gosper glider gun at mouse position
+				else if (mouse.is_right())
+				{
+					draw_gun(mouse.x / CELL_SIZE + 1, mouse.y / CELL_SIZE + 1);
+				}
 			}
 		}
 
