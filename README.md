@@ -13,7 +13,9 @@ Control of the GUI version:
 - r: re-generate cells  
 - p: pause  
 - n: next frame(only on pause)  
-- mouse click: make a cell live or die(only on pause)  
+- press z and move mouse: make cells live  
+- press x and move mouse: make cells die  
+- mouse mid-button click: draw a gosper glider gun  
   
 ![1](./ScreenShot/ScreenShot1.png)  
   

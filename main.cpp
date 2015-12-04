@@ -154,12 +154,13 @@ void mainloop()
 
 	for (; is_run(); delay_fps(fps))
 	{
+		bool live = false;
+		bool die = false;
+
 		// keyboard message
 		while (kbhit())
 		{
 			int key = getch();
-			putchar(key);
-
 			switch (key)
 			{
 			case 'p':	// pause
@@ -183,6 +184,12 @@ void mainloop()
 			case ' ':	// clear
 				clear();
 				break;
+			case 'z':
+				live = true;
+				break;
+			case 'x':
+				die = true;
+				break;
 			default:
 				break;
 			}
@@ -191,25 +198,27 @@ void mainloop()
 		// mouse message
 		while (mousemsg())
 		{
-			putchar('m');
 			mouse_msg mouse = getmouse();
 
-			if (mouse.is_up())
+			if (mouse.is_move())
 			{
-				// When pause, use mouse to change the status of a cell
-				if (pause && mouse.is_left())
+				// Press z or x and move mouse to change the status of a cell
+				if (live && !cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1])
 				{
-					if (cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1])
-						cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1] = 0;
-					else
-						cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1] = 1;
+					cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1] = 1;
 					updateScene(false);
 				}
-				// Draw a gosper glider gun at mouse position
-				else if (mouse.is_right())
+				else if (die && cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1])
 				{
-					draw_gun(mouse.x / CELL_SIZE + 1, mouse.y / CELL_SIZE + 1);
+					cells[mouse.x / CELL_SIZE + 1][mouse.y / CELL_SIZE + 1] = 0;
+					updateScene(false);
 				}
+			}
+
+			// Click mid button to draw a gosper glider gun
+			if (mouse.is_up() && mouse.is_mid())
+			{
+				draw_gun(mouse.x / CELL_SIZE + 1, mouse.y / CELL_SIZE + 1);
 			}
 		}
 
